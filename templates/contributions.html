@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Cotisations</h1>
+  <a class="btn btn-primary" href="{{ url_for('contributions_new') }}">+ Enregistrer une cotisation</a>
+</div>
+
+<p><strong>Total cotisations :</strong> {{ "%.0f"|format(total_contrib) }} FCFA</p>
+
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Nom</th>
+      <th>Classe</th>
+      <th>Montant</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in contribs %}
+      <tr>
+        <td>{{ c.date.strftime("%d/%m/%Y") }}</td>
+        <td>{{ c.name }}</td>
+        <td>{{ c.classe }}</td>
+        <td>{{ "%.0f"|format(c.amount) }} FCFA</td>
+        <td>{{ c.description }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5">Aucune cotisation enregistrée.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

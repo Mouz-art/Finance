@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Évènements</h1>
+  <a class="btn btn-primary" href="{{ url_for('events_new') }}">+ Créer un évènement</a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nom</th>
+      <th>Période</th>
+      <th>Budget cible</th>
+      <th>Recettes</th>
+      <th>Dons</th>
+      <th>Dépenses</th>
+      <th>Solde</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+      <tr>
+        <td>{{ e.name }}</td>
+        <td>
+          {% if e.start_date %}
+            {{ e.start_date.strftime("%d/%m/%Y") }}
+            {% if e.end_date %} - {{ e.end_date.strftime("%d/%m/%Y") }}{% endif %}
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
+        <td>{{ "%.0f"|format(e.target_budget or 0) }} FCFA</td>
+        <td>{{ "%.0f"|format(e.total_revenue) }} FCFA</td>
+        <td>{{ "%.0f"|format(e.total_donation) }} FCFA</td>
+        <td>{{ "%.0f"|format(e.total_expense) }} FCFA</td>
+        <td>
+          {% set bal = e.balance %}
+          <span class="{{ 'text-success' if bal >= 0 else 'text-danger' }}">
+            {{ "%.0f"|format(bal) }} FCFA
+          </span>
+        </td>
+        <td>
+          <a href="{{ url_for('event_detail', event_id=e.id) }}" class="btn btn-sm btn-outline-primary">
+            Détails
+          </a>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8">Aucun évènement créé.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

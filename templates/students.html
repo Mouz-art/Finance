@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1>Étudiants</h1>
+  <a class="btn btn-primary" href="{{ url_for('students_new') }}">+ Ajouter</a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Matricule</th>
+      <th>Nom</th>
+      <th>Classe</th>
+      <th>Téléphone</th>
+      <th>Total cotisations</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in students %}
+      <tr>
+        <td>{{ s.matricule }}</td>
+        <td>{{ s.name }}</td>
+        <td>{{ s.classe }}</td>
+        <td>{{ s.phone or '-' }}</td>
+        <td>{{ "%.0f"|format(s.total_contributions()) }} FCFA</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5">Aucun étudiant enregistré.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

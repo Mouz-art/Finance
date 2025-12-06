@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-4">Tableau de bord</h1>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card text-bg-primary mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Total cotisations</h5>
+        <p class="card-text fs-3">{{ "%.0f"|format(total_contrib) }} FCFA</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-success mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Nombre d'étudiants</h5>
+        <p class="card-text fs-3">{{ nb_students }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-warning mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Nombre d'évènements</h5>
+        <p class="card-text fs-3">{{ nb_events }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <h3>Dernières cotisations</h3>
+    <table class="table table-sm table-striped">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Étudiant</th>
+          <th>Classe</th>
+          <th>Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in recent_contribs %}
+          <tr>
+            <td>{{ c.date.strftime("%d/%m/%Y") }}</td>
+            <td>{{ c.student.name }}</td>
+            <td>{{ c.student.classe }}</td>
+            <td>{{ "%.0f"|format(c.amount) }} FCFA</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">Aucune cotisation enregistrée.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col-md-6 mb-4">
+    <h3>Évènements</h3>
+    <table class="table table-sm table-striped">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Dates</th>
+          <th>Solde</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+          <tr>
+            <td>{{ e.name }}</td>
+            <td>
+              {% if e.start_date %}
+                {{ e.start_date.strftime("%d/%m") }}
+                {% if e.end_date %} - {{ e.end_date.strftime("%d/%m/%Y") }}{% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+            </td>
+            <td>
+              {% set bal = e.balance %}
+              <span class="{{ 'text-success' if bal >= 0 else 'text-danger' }}">
+                {{ "%.0f"|format(bal) }} FCFA
+              </span>
+            </td>
+            <td>
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('event_detail', event_id=e.id) }}">Détails</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">Aucun évènement.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

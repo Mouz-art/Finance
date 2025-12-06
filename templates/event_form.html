@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Nouvel évènement</h1>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Nom de l'évènement</label>
+    <input type="text" class="form-control" name="name" placeholder="Ex : JAS 2025" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Description</label>
+    <textarea class="form-control" name="description" rows="3"></textarea>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Date de début</label>
+    <input type="date" class="form-control" name="start_date">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Date de fin</label>
+    <input type="date" class="form-control" name="end_date">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Budget cible (FCFA)</label>
+    <input type="number" class="form-control" name="target_budget">
+  </div>
+  <button type="submit" class="btn btn-success">Créer</button>
+  <a href="{{ url_for('events_list') }}" class="btn btn-secondary">Annuler</a>
+</form>
+{% endblock %}

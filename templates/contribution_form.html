@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Nouvelle cotisation</h1>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Étudiant</label>
+    <select class="form-select" name="student_id" required>
+      <option value="">-- Choisir --</option>
+      {% for s in students %}
+        <option value="{{ s.id }}">{{ s.classe }} - {{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Montant (FCFA)</label>
+    <input type="number" class="form-control" name="amount" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Date</label>
+    <input type="date" class="form-control" name="date">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Description</label>
+    <input type="text" class="form-control" name="description" placeholder="Cotisation hebdomadaire, don, etc.">
+  </div>
+  <button type="submit" class="btn btn-success">Enregistrer</button>
+  <a href="{{ url_for('contributions_list') }}" class="btn btn-secondary">Annuler</a>
+</form>
+{% endblock %}

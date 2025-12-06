@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Nouvelle transaction - {{ event.name }}</h1>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Type</label>
+    <select class="form-select" name="type" required>
+      <option value="">-- Choisir --</option>
+      <option value="revenue">Recette</option>
+      <option value="donation">Don</option>
+      <option value="expense">Dépense</option>
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Libellé</label>
+    <input type="text" class="form-control" name="label" placeholder="Ex: Sponsoring, impression flyers, location salle..." required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Montant (FCFA)</label>
+    <input type="number" class="form-control" name="amount" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Date</label>
+    <input type="date" class="form-control" name="date">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Personne (optionnel)</label>
+    <input type="text" class="form-control" name="person" placeholder="Sponsor, fournisseur, trésorier...">
+  </div>
+  <button type="submit" class="btn btn-success">Enregistrer</button>
+  <a href="{{ url_for('event_detail', event_id=event.id) }}" class="btn btn-secondary">Annuler</a>
+</form>
+{% endblock %}

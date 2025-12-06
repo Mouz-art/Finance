@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <h3 class="h5 mb-0">Définir un nouvel exercice</h3>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">Nom de l'exercice</label>
+            <input type="text" name="name" class="form-control" placeholder="Ex : 2025-2026" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <a href="{{ url_for('dashboard') }}" class="btn btn-secondary ms-2">Annuler</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

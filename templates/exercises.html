@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-3">Gestion des exercices</h2>
+
+{% if current_exercise %}
+  <p>Exercice courant : <strong>{{ current_exercise.name }}</strong></p>
+{% else %}
+  <p class="text-warning">Aucun exercice sélectionné pour le moment.</p>
+{% endif %}
+
+<div class="row">
+  <!-- Liste des exercices -->
+  <div class="col-md-8">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <h3 class="h6 mb-0">Liste des exercices</h3>
+      </div>
+      <div class="card-body p-0">
+        <form method="post" action="{{ url_for('exercises_select') }}">
+          <table class="table table-sm table-striped mb-0">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Nom</th>
+                <th>Créé le</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ex in exercises %}
+                <tr>
+                  <td>
+                    <input type="radio"
+                           name="exercise_id"
+                           value="{{ ex.id }}"
+                           {% if current_exercise and ex.id == current_exercise.id %}checked{% endif %}>
+                  </td>
+                  <td>
+                    {% if current_exercise and ex.id == current_exercise.id %}
+                      <strong>{{ ex.name }}</strong>
+                      <span class="badge bg-success">Courant</span>
+                    {% else %}
+                      {{ ex.name }}
+                    {% endif %}
+                  </td>
+                  <td>{{ ex.created_at.strftime("%d/%m/%Y") }}</td>
+                  <td>
+                    {% if current_user.role == "TG" %}
+                      <a href="{{ url_for('exercises_edit', exercise_id=ex.id) }}"
+                         class="btn btn-sm btn-outline-primary">
+                        Modifier
+                      </a>
+
+                      <form method="post"
+                            action="{{ url_for('exercises_delete', exercise_id=ex.id) }}"
+                            style="display:inline-block"
+                            onsubmit="return confirm('Supprimer cet exercice ?');">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">
+                          Supprimer
+                        </button>
+                      </form>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4" class="text-center py-3">
+                    Aucun exercice enregistré pour le moment.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          {% if exercises %}
+            <div class="p-3">
+              <button class="btn btn-primary" type="submit">
+                Sélectionner l'exercice
+              </button>
+            </div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloc création rapide (TG seulement) -->
+  {% if current_user.role == "TG" %}
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light">
+          <h3 class="h6 mb-0">Créer un nouvel exercice</h3>
+        </div>
+        <div class="card-body">
+          <a href="{{ url_for('exercises_new') }}" class="btn btn-success w-100">
+            Nouvel exercice
+          </a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

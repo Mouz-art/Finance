@@ -11,6 +11,18 @@ app.config["SECRET_KEY"] = "change_this_secret_key"
 
 db = SQLAlchemy(app)
 
+# ========= EXERCICE COURANT =========
+# À CHANGER CHAQUE ANNÉE : ex. "2025-2026"
+CURRENT_EXERCISE = "2024-2025"
+
+
+# ========= CONTEXTE GLOBAL POUR LES TEMPLATES =========
+@app.context_processor
+def inject_globals():
+    # disponible dans tous les templates : {{ current_exercise }}
+    return {"current_exercise": CURRENT_EXERCISE}
+
+
 # ---------- MODELS ----------
 
 class Student(db.Model):
@@ -32,6 +44,7 @@ class Contribution(db.Model):
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     description = db.Column(db.String(200), default="Cotisation hebdomadaire")
+    exercise = db.Column(db.String(20), nullable=False, default=CURRENT_EXERCISE)
 
 
 class Event(db.Model):
@@ -41,6 +54,7 @@ class Event(db.Model):
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
     target_budget = db.Column(db.Float)  # budget prévu
+    exercise = db.Column(db.String(20), nullable=False, default=CURRENT_EXERCISE)
 
     transactions = db.relationship("EventTransaction", backref="event", lazy=True)
 
@@ -73,7 +87,6 @@ class EventTransaction(db.Model):
 
 # ---------- CRÉATION DES TABLES ----------
 
-# Ici, les modèles sont déjà définis → on peut créer les tables
 with app.app_context():
     db.create_all()
 
@@ -82,16 +95,27 @@ with app.app_context():
 
 @app.route("/")
 def dashboard():
-    total_contrib = db.session.query(
-        func.coalesce(func.sum(Contribution.amount), 0)
-    ).scalar()
+    # On filtre par exercice courant
+    total_contrib = (
+        db.session.query(func.coalesce(func.sum(Contribution.amount), 0))
+        .filter(Contribution.exercise == CURRENT_EXERCISE)
+        .scalar()
+    )
     nb_students = Student.query.count()
-    nb_events = Event.query.count()
+    nb_events = Event.query.filter_by(exercise=CURRENT_EXERCISE).count()
 
-    events = Event.query.order_by(Event.start_date.desc().nullslast()).all()
-    recent_contribs = Contribution.query.order_by(
-        Contribution.date.desc()
-    ).limit(5).all()
+    events = (
+        Event.query.filter_by(exercise=CURRENT_EXERCISE)
+        .order_by(Event.start_date.desc().nullslast())
+        .all()
+    )
+
+    recent_contribs = (
+        Contribution.query.filter_by(exercise=CURRENT_EXERCISE)
+        .order_by(Contribution.date.desc())
+        .limit(5)
+        .all()
+    )
 
     return render_template(
         "dashboard.html",
@@ -141,6 +165,7 @@ def students_new():
 def contributions_list():
     contribs = (
         Contribution.query.join(Student)
+        .filter(Contribution.exercise == CURRENT_EXERCISE)
         .add_columns(
             Contribution.id,
             Contribution.amount,
@@ -152,9 +177,11 @@ def contributions_list():
         .order_by(Contribution.date.desc())
         .all()
     )
-    total_contrib = db.session.query(
-        func.coalesce(func.sum(Contribution.amount), 0)
-    ).scalar()
+    total_contrib = (
+        db.session.query(func.coalesce(func.sum(Contribution.amount), 0))
+        .filter(Contribution.exercise == CURRENT_EXERCISE)
+        .scalar()
+    )
     return render_template(
         "contributions.html",
         contribs=contribs,
@@ -187,6 +214,7 @@ def contributions_new():
             amount=amount,
             description=description,
             date=date_obj,
+            exercise=CURRENT_EXERCISE,
         )
         db.session.add(c)
         db.session.commit()
@@ -199,7 +227,11 @@ def contributions_new():
 
 @app.route("/events")
 def events_list():
-    events = Event.query.order_by(Event.start_date.desc().nullslast()).all()
+    events = (
+        Event.query.filter_by(exercise=CURRENT_EXERCISE)
+        .order_by(Event.start_date.desc().nullslast())
+        .all()
+    )
     return render_template("events.html", events=events)
 
 
@@ -234,6 +266,7 @@ def events_new():
             start_date=start_date,
             end_date=end_date,
             target_budget=target_budget,
+            exercise=CURRENT_EXERCISE,
         )
         db.session.add(e)
         db.session.commit()

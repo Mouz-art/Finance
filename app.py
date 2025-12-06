@@ -1,8 +1,26 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    Response,
+)
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from datetime import datetime
 import os
+
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///ise_finance.db"
@@ -11,19 +29,31 @@ app.config["SECRET_KEY"] = "change_this_secret_key"
 
 db = SQLAlchemy(app)
 
-# ========= EXERCICE COURANT =========
-# À CHANGER CHAQUE ANNÉE : ex. "2025-2026"
-CURRENT_EXERCISE = "2024-2025"
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
 
 
-# ========= CONTEXTE GLOBAL POUR LES TEMPLATES =========
-@app.context_processor
-def inject_globals():
-    # disponible dans tous les templates : {{ current_exercise }}
-    return {"current_exercise": CURRENT_EXERCISE}
+# ========= MODELES TECHNIQUES (CONFIG + UTILISATEURS) =========
+
+class Config(db.Model):
+    key = db.Column(db.String(50), primary_key=True)
+    value = db.Column(db.String(200), nullable=False)
 
 
-# ---------- MODELS ----------
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    role = db.Column(db.String(50), nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+
+    def set_password(self, password: str):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
+
+
+# ========= MODELES METIER =========
 
 class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,7 +74,7 @@ class Contribution(db.Model):
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     description = db.Column(db.String(200), default="Cotisation hebdomadaire")
-    exercise = db.Column(db.String(20), nullable=False, default=CURRENT_EXERCISE)
+    exercise = db.Column(db.String(20), nullable=False, default="2024-2025")
 
 
 class Event(db.Model):
@@ -53,8 +83,8 @@ class Event(db.Model):
     description = db.Column(db.Text)
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
-    target_budget = db.Column(db.Float)  # budget prévu
-    exercise = db.Column(db.String(20), nullable=False, default=CURRENT_EXERCISE)
+    target_budget = db.Column(db.Float)
+    exercise = db.Column(db.String(20), nullable=False, default="2024-2025")
 
     transactions = db.relationship("EventTransaction", backref="event", lazy=True)
 
@@ -82,36 +112,166 @@ class EventTransaction(db.Model):
     label = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
-    person = db.Column(db.String(120))  # personne qui a payé / reçu
+    person = db.Column(db.String(120))
 
 
-# ---------- CRÉATION DES TABLES ----------
+# ========= FONCTIONS UTILITAIRES =========
+
+def get_current_exercise() -> str:
+    cfg = Config.query.get("current_exercise")
+    if cfg is None:
+        cfg = Config(key="current_exercise", value="2024-2025")
+        db.session.add(cfg)
+        db.session.commit()
+    return cfg.value
+
+
+@app.context_processor
+def inject_globals():
+    return {
+        "current_exercise": get_current_exercise(),
+        "current_user": current_user,
+    }
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+# ========= INIT DB + COMPTES PAR DEFAUT =========
 
 with app.app_context():
     db.create_all()
 
+    # Exercice courant par défaut
+    if Config.query.get("current_exercise") is None:
+        db.session.add(Config(key="current_exercise", value="2024-2025"))
+        db.session.commit()
 
-# ---------- ROUTES ----------
+    # Création des comptes initiaux si aucun utilisateur
+    if User.query.count() == 0:
+        defaults = [
+            ("tg", "TG", "tg123"),
+            ("tga", "TGA", "tga123"),
+            ("president", "PRESIDENT", "pres123"),
+            ("vp", "VP", "vp123"),
+        ]
+        for username, role, pwd in defaults:
+            u = User(username=username, role=role)
+            u.set_password(pwd)
+            db.session.add(u)
+        db.session.commit()
+
+
+# ========= ROUTES AUTH =========
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user)
+            flash("Connexion réussie.", "success")
+            return redirect(url_for("dashboard"))
+        else:
+            flash("Nom d'utilisateur ou mot de passe incorrect.", "danger")
+            return redirect(url_for("login"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("Vous avez été déconnecté.", "info")
+    return redirect(url_for("login"))
+
+
+# ========= ROUTE : NOUVEL EXERCICE =========
+
+@app.route("/exercise/new", methods=["GET", "POST"])
+@login_required
+def new_exercise():
+    if request.method == "POST":
+        name = request.form.get("name")
+        if not name:
+            flash("Le nom de l'exercice est obligatoire.", "danger")
+            return redirect(url_for("new_exercise"))
+
+        cfg = Config.query.get("current_exercise")
+        if cfg is None:
+            cfg = Config(key="current_exercise", value=name)
+            db.session.add(cfg)
+        else:
+            cfg.value = name
+        db.session.commit()
+
+        flash(f"Nouvel exercice courant défini : {name}", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("exercise_form.html")
+
+
+# ========= ROUTE : EXPORT COTISATIONS =========
+
+@app.route("/export/contributions")
+@login_required
+def export_contributions():
+    exercise = get_current_exercise()
+    contribs = (
+        Contribution.query.filter_by(exercise=exercise)
+        .order_by(Contribution.date.asc())
+        .all()
+    )
+
+    lines = ["Matricule;Nom;Classe;Montant;Date;Description"]
+    for c in contribs:
+        lines.append(
+            f"{c.student.matricule};"
+            f"{c.student.name};"
+            f"{c.student.classe};"
+            f"{c.amount:.0f};"
+            f"{c.date.strftime('%Y-%m-%d')};"
+            f"{c.description}"
+        )
+
+    csv_data = "\n".join(lines)
+    filename = f"cotisations_{exercise.replace(' ', '_')}.csv"
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename={filename}"},
+    )
+
+
+# ========= ROUTES METIER =========
 
 @app.route("/")
 def dashboard():
-    # On filtre par exercice courant
+    exercise = get_current_exercise()
+
     total_contrib = (
         db.session.query(func.coalesce(func.sum(Contribution.amount), 0))
-        .filter(Contribution.exercise == CURRENT_EXERCISE)
+        .filter(Contribution.exercise == exercise)
         .scalar()
     )
     nb_students = Student.query.count()
-    nb_events = Event.query.filter_by(exercise=CURRENT_EXERCISE).count()
+    nb_events = Event.query.filter_by(exercise=exercise).count()
 
     events = (
-        Event.query.filter_by(exercise=CURRENT_EXERCISE)
+        Event.query.filter_by(exercise=exercise)
         .order_by(Event.start_date.desc().nullslast())
         .all()
     )
 
     recent_contribs = (
-        Contribution.query.filter_by(exercise=CURRENT_EXERCISE)
+        Contribution.query.filter_by(exercise=exercise)
         .order_by(Contribution.date.desc())
         .limit(5)
         .all()
@@ -136,6 +296,7 @@ def students_list():
 
 
 @app.route("/students/new", methods=["GET", "POST"])
+@login_required
 def students_new():
     if request.method == "POST":
         matricule = request.form.get("matricule")
@@ -163,9 +324,10 @@ def students_new():
 
 @app.route("/contributions")
 def contributions_list():
+    exercise = get_current_exercise()
     contribs = (
         Contribution.query.join(Student)
-        .filter(Contribution.exercise == CURRENT_EXERCISE)
+        .filter(Contribution.exercise == exercise)
         .add_columns(
             Contribution.id,
             Contribution.amount,
@@ -179,7 +341,7 @@ def contributions_list():
     )
     total_contrib = (
         db.session.query(func.coalesce(func.sum(Contribution.amount), 0))
-        .filter(Contribution.exercise == CURRENT_EXERCISE)
+        .filter(Contribution.exercise == exercise)
         .scalar()
     )
     return render_template(
@@ -190,6 +352,7 @@ def contributions_list():
 
 
 @app.route("/contributions/new", methods=["GET", "POST"])
+@login_required
 def contributions_new():
     students = Student.query.order_by(Student.classe, Student.name).all()
     if request.method == "POST":
@@ -209,12 +372,14 @@ def contributions_new():
         else:
             date_obj = datetime.utcnow().date()
 
+        exercise = get_current_exercise()
+
         c = Contribution(
             student_id=student_id,
             amount=amount,
             description=description,
             date=date_obj,
-            exercise=CURRENT_EXERCISE,
+            exercise=exercise,
         )
         db.session.add(c)
         db.session.commit()
@@ -227,8 +392,9 @@ def contributions_new():
 
 @app.route("/events")
 def events_list():
+    exercise = get_current_exercise()
     events = (
-        Event.query.filter_by(exercise=CURRENT_EXERCISE)
+        Event.query.filter_by(exercise=exercise)
         .order_by(Event.start_date.desc().nullslast())
         .all()
     )
@@ -236,6 +402,7 @@ def events_list():
 
 
 @app.route("/events/new", methods=["GET", "POST"])
+@login_required
 def events_new():
     if request.method == "POST":
         name = request.form.get("name")
@@ -260,13 +427,15 @@ def events_new():
         )
         target_budget = float(target_budget) if target_budget else None
 
+        exercise = get_current_exercise()
+
         e = Event(
             name=name,
             description=description,
             start_date=start_date,
             end_date=end_date,
             target_budget=target_budget,
-            exercise=CURRENT_EXERCISE,
+            exercise=exercise,
         )
         db.session.add(e)
         db.session.commit()
@@ -287,6 +456,7 @@ def event_detail(event_id):
 
 
 @app.route("/events/<int:event_id>/transactions/new", methods=["GET", "POST"])
+@login_required
 def event_transaction_new(event_id):
     event = Event.query.get_or_404(event_id)
     if request.method == "POST":
@@ -327,7 +497,7 @@ def event_transaction_new(event_id):
     return render_template("event_transaction_form.html", event=event)
 
 
-# ---------- MAIN ----------
+# ========= MAIN =========
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

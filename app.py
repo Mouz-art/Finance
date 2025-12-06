@@ -253,6 +253,7 @@ def export_contributions():
 # ========= ROUTES METIER =========
 
 @app.route("/")
+@login_required
 def dashboard():
     exercise = get_current_exercise()
 
@@ -290,6 +291,7 @@ def dashboard():
 # ---- Students ----
 
 @app.route("/students")
+@login_required
 def students_list():
     students = Student.query.order_by(Student.classe, Student.name).all()
     return render_template("students.html", students=students)
@@ -323,6 +325,7 @@ def students_new():
 # ---- Contributions ----
 
 @app.route("/contributions")
+@login_required
 def contributions_list():
     exercise = get_current_exercise()
     contribs = (
@@ -391,6 +394,7 @@ def contributions_new():
 # ---- Events ----
 
 @app.route("/events")
+@login_required
 def events_list():
     exercise = get_current_exercise()
     events = (
@@ -445,6 +449,7 @@ def events_new():
 
 
 @app.route("/events/<int:event_id>")
+@login_required
 def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     transactions = (
